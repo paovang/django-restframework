@@ -1,30 +1,57 @@
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
 from demo.models import User
 from demo.serializers import UserSerializer
-from rest_framework import status
+from .response_format import ResponseFormat
 
-@api_view(['POST'])
-def create(request):
-    serializer = UserSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
-    else:
-        return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+class UserView(APIView):
+    response_format = ResponseFormat()
 
-@api_view(['GET'])
-def getAll(request):
-    users = User.objects.all().order_by('-id')
-    serializer = UserSerializer(users, many=True)
-    return Response({'users': serializer.data})
+    @api_view(['POST'])
+    def create(request):
+        serializer = UserSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'User created successfully'}, status=status.HTTP_201_CREATED)
+        else:
+            return Response({'error': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
-def getOne(request, id):
-    try:
-        user = User.objects.get(pk=id)
+    @api_view(['PUT'])
+    def update(request, id):
+        user = get_object_or_404(User, pk=id)
+        serializer = UserSerializer(user, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @api_view(['GET'])
+    def get_all(request):
+        users = User.objects.all().order_by('-id')
+        serializer = UserSerializer(users, many=True)
+        formatted_users = [UserView.response_format.to_format(item) for item in serializer.data]
+
+        response_data = {
+            'status': status.HTTP_200_OK,
+            'message': 'successfully retrieved users',
+            'data': formatted_users
+        }
+
+        return Response(response_data)
+
+    @api_view(['GET'])
+    def get_one(request, id):
+        user = get_object_or_404(User, pk=id)
         serializer = UserSerializer(user)
-        return Response({'user': serializer.data})
-    except User.DoesNotExist:
-        return Response({'detail': 'User not found'}, status=404)
+
+        response_data = {
+            'status': status.HTTP_200_OK,
+            'message': 'successfully retrieved users',
+            'data': UserView.response_format.to_format(serializer.data)
+        }
+
+        return Response(response_data)
