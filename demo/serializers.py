@@ -7,8 +7,19 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = '__all__'
         extra_kwargs = {
-            'email': {'validators': []},
-            'surname': {'validators': []},
+            'email': {
+                'validators': [],
+                'error_messages': {
+                    'required': 'email is required...',
+                    'blank': 'email cannot be empty...',
+                }
+            },
+            'surname': {
+                'error_messages': {
+                    'required': 'surname is required...',
+                    'blank': 'surname cannot be empty...',
+                }
+            }
         }
 
     def __init__(self, *args, **kwargs):
