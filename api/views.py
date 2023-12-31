@@ -4,7 +4,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from django.shortcuts import get_object_or_404
 from demo.models import User, Company, CompanyUser
-from demo.serializers import UserSerializer, CompanyUserSerializer, UploadedFileSerializer
+from demo.serializers import UserSerializer, CompanyUserSerializer
 from .response_format import ResponseFormat
 from demo.response_format.format_com_user import ResponseFormatComPanyUser
 from rest_framework.pagination import PageNumberPagination
@@ -15,33 +15,6 @@ class UserView(APIView):
     response_format = ResponseFormat()
     format_com_user = ResponseFormatComPanyUser()
     paginator = PageNumberPagination()
-
-    # def post(self, request, *args, **kwargs):
-    #     try:
-    #         # Extract data from the request
-    #         user_id = request.data.get('user_id')
-    #         company_id = request.data.get('company_id')
-    #         profile = request.data.get('profile')
-
-    #         # Fetch User and Company instances
-    #         user = User.objects.get(pk=user_id)
-    #         company = Company.objects.get(pk=company_id)
-            
-    #         # Create CompanyUser instance
-    #         company_user = CompanyUser.objects.create(user=user, company=company, profile=profile)
-
-    #         # Serialize the created CompanyUser instance
-    #         serializer = CompanyUserSerializer(company_user)
-    #         if serializer.is_valid():
-    #             serializer.save()
-    #             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    #     except User.DoesNotExist:
-    #         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-    #     except Company.DoesNotExist:
-    #         return Response({'error': 'Company not found'}, status=status.HTTP_404_NOT_FOUND)
-    #     except Exception as e:
-    #         return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @api_view(['POST'])
     def create(request):
@@ -101,19 +74,14 @@ class UserView(APIView):
     def company_user_create(request):
         try:
             # Extract data from the request
-            user_id = request.data.get('user_id')
-            company_id = request.data.get('company_id')
+            user = request.data.get('user_id')
+            company = request.data.get('company_id')
             profile = request.data.get('profile')
 
-            # Fetch User and Company instances
-            user = User.objects.get(pk=user_id)
-            company = Company.objects.get(pk=company_id)
-            
-            # Create CompanyUser instance
-            company_user = CompanyUser.objects.create(user=user, company=company, profile=profile)
-
             # Serialize the created CompanyUser instance
-            serializer = CompanyUserSerializer(company_user)
+            serializer = CompanyUserSerializer(
+                data={'user': user, 'company': company, 'profile': profile}
+            )
 
             if serializer.is_valid():
                 serializer.save()
@@ -146,7 +114,7 @@ class UserView(APIView):
             )
 
             # filter Company User
-            company_users = CompanyUser.objects.prefetch_related('user', 'company').filter(
+            company_users = CompanyUser.objects.prefetch_related('user__roles', 'company').filter(
                 Q(user__name__icontains=name_filter) | Q(user__surname__icontains=name_filter),
                 (Q(user__created_at__date__range=(start_date, end_date)) if start_date and end_date else Q())
             ).order_by('-id')
@@ -155,13 +123,13 @@ class UserView(APIView):
             result_paginate = UserView.paginator.paginate_queryset(company_users, request)
             serializer = CompanyUserSerializer(result_paginate, many=True)
     
-            formatted_items = [UserView.format_com_user.to_format(item) for item in serializer.data]
+            # formatted_items = [UserView.format_com_user.to_format(item) for item in serializer.data]
 
             response_data = {
                 'status': status.HTTP_200_OK,
                 'message': 'successfully retrieved users',
-                'data': formatted_items,
-                'count': UserView.paginator.page.paginator.count,
+                'data': serializer.data,
+                'total': UserView.paginator.page.paginator.count,
                 'next': UserView.paginator.get_next_link(),
                 'previous': UserView.paginator.get_previous_link()
             }

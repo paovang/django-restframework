@@ -1,5 +1,9 @@
 from rest_framework import serializers
-from .models import User, Company, CompanyUser, UserProfile
+from .models import User, Company, CompanyUser, Role
+from django.conf import settings
+import os
+from .utils.file import validate_image_extension
+from django.core.validators import FileExtensionValidator
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -55,32 +59,56 @@ class CompanySerializer(serializers.ModelSerializer):
         model = Company
         fields = '__all__'
 
+class RoleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Role
+        fields = '__all__'
+
 class CompanyUserSerializer(serializers.ModelSerializer):
-    user = UserSerializer()
-    company = CompanySerializer()
+    user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), allow_null=True)
+    company = serializers.PrimaryKeyRelatedField(queryset=Company.objects.all(), allow_null=True)
+    # profile = serializers.FileField(
+    #     validators=[
+    #         FileExtensionValidator(allowed_extensions=['jpg', 'png', 'docx']),
+    #     ],
+    #     error_messages = {
+    #         'required': 'Your custom error message for required profile image',
+    #         'invalid_extension': 'Your file must be type: jpg, png, docx',
+    #         'empty': 'Your custom error message for empty profile image',
+    #     },
+    # )
 
     class Meta:
         model = CompanyUser
         fields = '__all__'
 
-    # def validate_profile(self, value):
-    #     print('Validating profile...')
-    #     return value
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        
+        representation['profile'] = os.getenv('BASE_URL') + representation['profile'] if representation['profile'] is not None else None
+       
+        # Include all fields for the related user
+        user_instance = instance.user
+        user_representation = UserSerializer(user_instance).data
+        representation['user'] = {
+            'id': user_representation['id'],
+            'naeme': user_representation['name'],
+            'email': user_representation['email']
+        }
 
+        # Include all fields for the related company
+        company_instance = instance.company
+        company_representation = CompanySerializer(company_instance).data
+        representation['company'] = {
+            'id': company_representation['id'],
+            'name': company_representation['name'],
+            'phone_number': company_representation['phone_number'],
+            'address': company_representation['address']
+        }
 
-    # def validate_user_id(self, value):
-    #     print('user_id......')
-    #     return value
+        role_instance = instance.user.roles.all()
+        roles_representation = RoleSerializer(role_instance, many=True).data
+        representation['user']['roles'] = roles_representation
 
-    # def validate_company_id(self, value):
-    #     try:
-    #         company = Company.objects.get(pk=value)
-    #     except Company.DoesNotExist:
-    #         raise serializers.ValidationError("Company not found")
-    #     return value
+        return representation
     
-    
-class UploadedFileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserProfile
-        fields = '__all__'

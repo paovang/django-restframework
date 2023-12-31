@@ -26,7 +26,7 @@ class Company(models.Model):
         db_table = 'companies'
 
 class CompanyUser(models.Model):
-    profile = models.ImageField(
+    profile = models.FileField(
         upload_to=custom_cover_image_filename,
         null=True,
         blank=True,
@@ -34,18 +34,21 @@ class CompanyUser(models.Model):
     )
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     company = models.ForeignKey(Company, on_delete=models.CASCADE)
-    # created_at = models.DateTimeField(auto_now_add=True)
-    # updated_at = models.DateTimeField(auto_now=True)
-    # deleted_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'company_users'
 
-class UserProfile(models.Model):
-    file = models.FileField(
-        upload_to='company/users/',
-        validators=[validate_image_extension]
-    )
+class Role(models.Model):
+    name = models.CharField(max_length=255, null=True)
+    description = models.CharField(max_length=255, null=True)
+    user = models.ManyToManyField(User, related_name='roles')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        db_table = 'upload_files'
+        db_table = 'roles'
+
