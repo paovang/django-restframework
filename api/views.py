@@ -10,8 +10,16 @@ from demo.response_format.format_com_user import ResponseFormatComPanyUser
 from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 from datetime import datetime
+from rest_framework.decorators import authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
+# @authentication_classes([SessionAuthentication, JWTAuthentication])
+# @permission_classes([IsAuthenticated])
 class UserView(APIView):
+    permission_classes = [IsAuthenticated]
+    
     response_format = ResponseFormat()
     format_com_user = ResponseFormatComPanyUser()
     paginator = PageNumberPagination()
@@ -114,7 +122,7 @@ class UserView(APIView):
             )
 
             # filter Company User
-            company_users = CompanyUser.objects.prefetch_related('user__roles', 'company').filter(
+            company_users = CompanyUser.objects.prefetch_related('user__role_user', 'company').filter(
                 Q(user__name__icontains=name_filter) | Q(user__surname__icontains=name_filter),
                 (Q(user__created_at__date__range=(start_date, end_date)) if start_date and end_date else Q())
             ).order_by('-id')

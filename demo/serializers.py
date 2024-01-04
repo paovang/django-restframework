@@ -4,6 +4,7 @@ from django.conf import settings
 import os
 from .utils.file import validate_image_extension
 from django.core.validators import FileExtensionValidator
+from django.contrib.auth.hashers import make_password
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,12 +18,13 @@ class UserSerializer(serializers.ModelSerializer):
                     'blank': 'email cannot be empty...',
                 }
             },
-            'surname': {
+            'username': {
                 'error_messages': {
-                    'required': 'surname is required...',
-                    'blank': 'surname cannot be empty...',
+                    'required': 'username is required...',
+                    'blank': 'username cannot be empty...',
                 }
-            }
+            },
+            'password': {'write_only': True}
         }
 
     def __init__(self, *args, **kwargs):
@@ -30,16 +32,16 @@ class UserSerializer(serializers.ModelSerializer):
         super(UserSerializer, self).__init__(*args, **kwargs)
         self.method = self.context['request'].method if 'request' in self.context else None
 
-    def validate_surname(self, value):
+    def validate_username(self, value):
         if self.method in ['PUT', 'PATCH']:
             # If it's an update, ignore the current instance in the uniqueness check
-            other_users = User.objects.filter(surname=value).exclude(pk=self.instance.pk)
+            other_users = User.objects.filter(username=value).exclude(pk=self.instance.pk)
         else:
             # For new instances, check uniqueness without excluding the current instance
-            other_users = User.objects.filter(surname=value)
+            other_users = User.objects.filter(username=value)
 
         if other_users.exists():
-            raise serializers.ValidationError('Surname is not unique.')
+            raise serializers.ValidationError('Username is not unique.')
         return value
         
     def validate_email(self, value):
@@ -53,6 +55,11 @@ class UserSerializer(serializers.ModelSerializer):
         if other_users.exists():
             raise serializers.ValidationError('Email is not unique.')
         return value
+
+    def create(self, validated_data):
+        # Hash the password before saving
+        validated_data['password'] = make_password(validated_data['password'])
+        return super().create(validated_data)
 
 class CompanySerializer(serializers.ModelSerializer):
     class Meta:
@@ -106,7 +113,7 @@ class CompanyUserSerializer(serializers.ModelSerializer):
             'address': company_representation['address']
         }
 
-        role_instance = instance.user.roles.all()
+        role_instance = instance.user.role_user.all()
         roles_representation = RoleSerializer(role_instance, many=True).data
         representation['user']['roles'] = roles_representation
 
